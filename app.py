@@ -5,26 +5,30 @@ import numpy as np
 app = Flask(__name__)
 
 # Load the models
-ph_model = joblib.load('random_forest_ph_model.pkl')
-tds_model = joblib.load('random_forest_tds_model.pkl')
+ph_model = joblib.load('ph_model.pkl')
+tds_model = joblib.load('tds_model.pkl')
 
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.get_json(force=True)
-    features = np.array([[
-        data['hour'],
-        data['day'],
-        data['month'],
-        data['year']
-    ]])
     
-    ph_prediction = ph_model.predict(features)
-    tds_prediction = tds_model.predict(features)
+    # Generate daily inputs
+    hours = list(range(6, 22))
+    day = [data['day']] * len(hours)
+    month = [data['month']] * len(hours)
+    year = [data['year']] * len(hours)
 
-    return jsonify({
-        'ph': ph_prediction[0],
-        'tds': tds_prediction[0]
-    })
+    features = np.array([hours, day, month, year]).T
+    
+    ph_predictions = ph_model.predict(features)
+    tds_predictions = tds_model.predict(features)
+
+    results = [
+        {'hour': hour, 'ph': ph, 'tds': tds} 
+        for hour, ph, tds in zip(hours, ph_predictions, tds_predictions)
+    ]
+
+    return jsonify(results)
 
 if __name__ == '__main__':
     app.run(debug=True)
